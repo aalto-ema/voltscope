@@ -1,0 +1,41 @@
+# Raw experimental data: never commit instrument files or private exports.
+*.[dD][tT][aA]
+*.[iI][dD][fF]
+*.[iI][dD][sS]
+*.[cC][oO][rR]
+*.csv
+*.tsv
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated artifacts and scratch work
+outputs/
+work/
+
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Metrohm experiment and companion files
+*.[nN][oO][xX]
+*.[oO][cC][wW]
+*.[iI][cC][wW]
+*.[iI][cC][iI]
+
+# DropView measurement files
+*.[mM][tT][cC]
+*.[mM][tT][aA]
+*.[mM][tT][dD]
