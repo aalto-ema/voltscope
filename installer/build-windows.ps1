@@ -19,16 +19,18 @@ try {
         throw 'Inno Setup 6 was not found. Install it or add ISCC.exe to PATH.'
     }
 
+    $thirdParty = (Resolve-Path 'third_party').Path
+    $entryPoint = (Resolve-Path 'voltscope.py').Path
     $bundle = @(
         '--noconfirm', '--clean', '--noupx', '--onedir', '--windowed',
         '--name', 'VoltScope', '--distpath', 'work/windows/dist',
         '--workpath', 'work/windows/build', '--specpath', 'work/windows',
-        '--add-data', 'third_party:third_party'
+        '--add-data', "${thirdParty}:third_party"
     )
     foreach ($distribution in @('PySide6', 'PySide6-Essentials', 'PySide6-Addons', 'shiboken6', 'numpy', 'scipy', 'openpyxl', 'et_xmlfile', 'nrbf')) {
         $bundle += @('--copy-metadata', $distribution)
     }
-    python -m PyInstaller @bundle voltscope.py
+    python -m PyInstaller @bundle $entryPoint
     & $iscc "/DAppVersion=$Version" 'installer/VoltScope.iss'
 
     $setup = Get-Item 'outputs/windows/VoltScope-Setup-x64.exe'
