@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from PySide6.QtCore import QCoreApplication, QEvent
 from voltscope_data import Curve
 from voltscope_analysis import run, Selection, branches, export_results, fingerprint
 
@@ -177,6 +178,12 @@ class AnalysisUI(unittest.TestCase):
         from PySide6.QtWidgets import QApplication
         cls.app=QApplication.instance() or QApplication([])
 
+    def dispose(self, viewer):
+        viewer.close()
+        viewer.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        self.app.processEvents()
+
     def test_workbench_preview_commit_undo_export_and_invalidation(self):
         from voltscope_ui import Viewer
         from voltscope_analysis_ui import AnalysisDialog, render_plot
@@ -209,7 +216,7 @@ class AnalysisUI(unittest.TestCase):
         finally:
             if dialog.worker:
                 dialog.worker.wait();self.app.processEvents()
-            dialog.close();w.close();self.app.processEvents()
+            dialog.close();self.dispose(w)
 
     def test_density_display_scaling_preserves_derived_values(self):
         from voltscope_ui import Viewer
@@ -221,7 +228,7 @@ class AnalysisUI(unittest.TestCase):
             self.assertEqual(len(w.plot.series),2)
             self.assertEqual(w.plot.series[0][1],w.plot.series[1][1])
             self.assertEqual(b.rows[0][1],1000.)
-        finally:w.close();self.app.processEvents()
+        finally:self.dispose(w)
 
     def test_rejected_parameters_do_not_add_curves(self):
         from voltscope_ui import Viewer
@@ -238,4 +245,7 @@ class AnalysisUI(unittest.TestCase):
             self.assertFalse(dialog.apply.isEnabled())
             self.assertIn('Area',dialog.feedback.text())
             self.assertEqual(w.curves,[c])
-        finally:dialog.close();w.close();self.app.processEvents()
+        finally:
+            if dialog.worker:
+                dialog.worker.wait();self.app.processEvents()
+            dialog.close();self.dispose(w)

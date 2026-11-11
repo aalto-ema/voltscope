@@ -173,6 +173,7 @@ class Imports(unittest.TestCase):
         with self.assertRaises(ValueError):read_data(x)
 
     def test_ui_new_file_open_axes_and_export(self):
+        from PySide6.QtCore import QCoreApplication, QEvent
         from PySide6.QtWidgets import QApplication, QFileDialog
         from PySide6.QtTest import QTest
         from voltscope_ui import Viewer
@@ -208,4 +209,6 @@ class Imports(unittest.TestCase):
         finally:
             if window.importer:
                 window.importer.wait();app.processEvents()
-            window.close();window.deleteLater();app.processEvents()
+            window.close();window.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+            app.processEvents()

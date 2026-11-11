@@ -165,7 +165,7 @@ class CVWorkflow(unittest.TestCase):
     def test_auto_preview_windows_branch_export_invalidation_and_undo(self):
         from voltscope_ui import Viewer
         from voltscope_analysis_ui import AnalysisDialog
-        from PySide6.QtCore import QPoint,Qt
+        from PySide6.QtCore import QCoreApplication,QEvent,QPoint,Qt
         from PySide6.QtTest import QTest
         w=Viewer();w.loaded([make()],[]);w.show();d=AnalysisDialog(w);d.show()
         try:
@@ -183,6 +183,8 @@ class CVWorkflow(unittest.TestCase):
             d.commit();self.assertEqual(len(w.curves),2);w.undo_analysis();self.assertEqual(len(w.curves),1)
         finally:
             if d.worker:d.worker.wait();self.app.processEvents()
-            d.close();w.close();self.app.processEvents()
+            d.close();w.close();w.deleteLater()
+            QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+            self.app.processEvents()
 
 if __name__=='__main__':unittest.main()
