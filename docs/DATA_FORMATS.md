@@ -11,8 +11,9 @@ Source filename provenance does not currently include a file hash or full path.
 Plots skip curves with unavailable axes or units incompatible with the first
 plotted curve and report skipped curves in the status bar. Changing the current
 display unit does not change exported raw data. Reference electrodes and current
-signs are not converted. Current-density normalization and background correction
-are not implemented.
+signs are not converted. Import does not apply normalization or background correction. Explicit derived
+operations, including area conversion and selected baseline subtraction, are
+available in the [analysis workbench](ANALYSIS.md).
 
 ## Gamry DTA
 
@@ -65,9 +66,9 @@ Metadata is read per scan, including title, method, start time, instrument, and
 recorded completion/abort status. Other Ivium layouts and versions are not yet
 individually validated.
 
-## Future analysis conventions
+## Analysis conventions
 
-Before adding an analysis, specify input columns, units, selected curve/cycle and
+The analysis workbench records input columns, units, selected curve/cycle and
 interval, sign conventions, preprocessing, algorithm, parameters, and validity
 conditions. Keep derived results separate from raw data. Require explicit inputs
 for electrode area or reference-electrode conversion where source metadata is
@@ -167,3 +168,128 @@ All nine supplied examples were checked against every source-array value: three
 CV files with 451 rows each; two AD files with 121 each; four DPV files with 426
 each. XML descriptor versions 2 and 1.0 occur in these examples. Other DropView
 layouts are not yet individually validated.
+
+## BioLogic EC-Lab / BT-Lab MPT, TXT, MPR
+
+ASCII MPT reads the declared header-line count, technique description, all
+columns and numeric rows. Header-only TXT exports must have distinctive
+BioLogic signal headers, such as `Ewe/V`; arbitrary text is rejected. UTF-8,
+Windows-1252, decimal commas and decimal points are supported. `Ewe`/`<Ewe>`
+map to Vf, `I`/`<I>` to Im, `time` to T, and an explicit voltage control column
+to Vset. Original units (including mA) remain unchanged. Duplicate signal names
+get distinct suffixes; unknown columns are retained.
+
+Binary MPR reads length-delimited MODULE records and data-module versions 2/3.
+A versioned ID/type table from the MIT-licensed cheminfo biologic-converter
+project identifies signal widths. Shared flag bytes are decoded into their
+recorded logical columns. Row size and count must match exactly. Unknown IDs,
+unsupported versions and truncated records fail explicitly; export MPT from
+EC-Lab if a binary layout is unsupported. A separate Curve is created for each
+stored data module. Cycle and step fields are retained without inferred splitting.
+Technique IDs select CV/CA/CP/EIS defaults where known. Recorded error flags are
+shown as STATUS. Opaque settings/log/loop modules remain in in-memory metadata
+as hexadecimal bytes, with module descriptors; arbitrary settings fields are
+not guessed. These metadata blobs are not columns in CSV exports.
+
+The format table and license notice are in `third_party/`. References:
+[BioLogic converter source](https://github.com/cheminfo/biologic-converter) and
+[EC-Lab manual](https://12bm.xray.aps.anl.gov/files/EC-Lab_software_manual.pdf).
+
+## PalmSens PSTrace PSSESSION
+
+The reader uses JSON only, with no deserialization of executable objects or .NET
+runtime dependency. Both key capitalization variants, UTF-8/UTF-16 BOMs and a
+trailing BOM are supported. Every measurement and named scan is retained.
+Stored raw DataSet arrays take precedence over processed display curves. Stored
+plot arrays are used only if no supported raw dataset is available, and this is
+marked in STATUS. Distinct EIS datasets are retained; duplicates of the same
+raw dataset in EIS plot wrappers are not imported twice.
+
+Explicit Unit.Type takes precedence over Unit.S: MicroAmpere means µA even if
+the base symbol is A. Ordinary CV current values are already in µA; current
+range C and reading/status fields are retained as extra columns, not applied as
+multipliers. For legacy EIS Idc/midc/Iac readings whose range interpretation is
+not established, raw values and range codes are retained with unknown current
+units. No range conversion is guessed. The source unit object remains metadata.
+Frequency, impedance and phase labels preserve the stored sign convention.
+
+Arrays are grouped by explicit scan name and stored length. Unequal arrays are
+kept in separate tables, with STATUS explaining the split; no points are trimmed
+or padded. A shared time array is not assigned to multiple named scans based
+only on equal lengths; it remains a separate table unless a scan association is
+explicit. Single-dataset non-scan arrays may share their stored time array.
+Measurement settings, native timestamp ticks, device details and array properties
+remain metadata. Timestamp timezone conversions, baseline corrections and pulse
+subtraction are not performed. Unsupported nonempty measurements stop the import
+with an explicit error rather than being silently skipped.
+
+Reference: [PalmSens data documentation](https://dev.palmsens.com/python/latest/_attachments/data/).
+
+## Zahner ISM
+
+ISM reads the stored frequency, impedance magnitude, phase in **radians**,
+seconds since 1980-01-01 (timezone unspecified), and significance arrays.
+Classic headers 0xFFFFFFFF/0xFFFFFFFE and version 2 are recognized. All stored
+points, including overlapping/repeated frequencies, remain in acquisition order.
+The reader does not apply the vendor library's default frequency trimming or
+reordering. Optional case-encoded strings, acquisition flags, parameter values,
+and voltage/current acquisition channels are read where present. Undecoded
+trailing metadata is retained as hex. Truncated arrays/metadata fail clearly.
+Real/imaginary impedance is not derived from magnitude and phase.
+
+Reference: [Zahner's reader](https://github.com/Zahner-elektrik/zahner-analysis-python);
+its MIT notice is retained in `third_party/Zahner-LICENSE.txt`.
+
+## CSV and XLSX tables
+
+CSV supports comma, semicolon or tab delimiters and decimal commas inside
+appropriately delimited cells. The first nonempty row is the header. Units can
+be in brackets, parentheses or slash labels; otherwise they remain unknown.
+A separate unit row is recognized when every populated cell is a recognized
+unit. Empty header cells receive generic column names, never inferred potential
+or current meanings. Text/status columns, empty cells and row order are retained.
+Each nonempty XLSX worksheet is one table, including wide multi-series tables;
+select the desired columns with the axis controls. Empty sheets are reported.
+Formula cells are rejected to avoid using stale or missing calculation caches.
+No macros or calculations are executed. Plot data always comes from the stored
+numeric values, and CSV export retains all columns, including text/status data.
+There is no automatic extraction from charts, merged layouts or arbitrary
+multi-block spreadsheets; those require a clean header-based table first.
+
+## Public-data validation for these importers
+
+Local macOS checks used eight MPR files and their TXT counterparts from
+[Zenodo 6560384](https://zenodo.org/records/6560384), an independent MPR/MPT CV
+pair from cheminfo, the NIST ferrocyanide session/XLSX from
+[NIST mds2-3388](https://data.nist.gov/od/id/mds2-3388), and manufacturer-provided
+PalmSens mixed CV/DPV/EIS and Zahner examples. The Zahner li-ion-battery example
+is labelled Simulation by the vendor; a separate 500 µΩ measurement example
+also validates acquisition channels. Some deposited MPR/TXT pairs have different
+sampling counts, and some NIST spreadsheet currents differ from their native
+session readings. Imports preserve each source independently, without forcing
+agreement or resampling. Generated checks are in ignored outputs; downloaded
+real files stay in ignored work storage. Committed tests contain only synthetic
+fixtures. Windows native interaction has not been tested for these additions.
+
+## Headerless legacy CSV and derived data
+
+Wholly numeric headerless CSV is read as adjacent X/Y pairs with unknown units;
+the first row is retained. Entirely empty pairs in a row are placeholders and
+are omitted only from that pair, with the original source row recorded. Partial
+pairs and inconsistent widths fail. UTF-16 tab-delimited numeric CSV is also
+supported. Assign units explicitly in Analysis before physical calculations.
+
+Analysis adds columns/tables without overwriting imported values. Derived curves
+carry analysis IDs/history and named default axes. Ordinary CSV export retains
+stored values; result bundles additionally retain parameters, curve-snapshot
+hashes, units and assumptions. See [ANALYSIS.md](ANALYSIS.md) for algorithms.
+
+
+## CV analysis and incomplete samples
+
+Import continues to preserve stored rows and values. The **CV baseline & peaks**
+analysis may omit nonfinite/missing potential-current pairs from its derived
+sweeps, with exact excluded source rows in provenance and visible warnings.
+Duplicates and minor potential jitter remain in acquisition order. Other analysis
+tools retain their stricter contiguous/finite requirements. This distinction never
+changes the original imported curve or raw CSV export; see [ANALYSIS.md](ANALYSIS.md).

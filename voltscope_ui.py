@@ -1,6 +1,7 @@
 """PySide6 controls and a Qt painter-based plot; no plotting dependency."""
 import math
 import html
+import json
 from pathlib import Path
 from PySide6.QtCore import Qt, QRectF, QPointF, QThread, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QKeySequence, QShortcut, QIcon, QPixmap
@@ -9,21 +10,34 @@ from PySide6.QtWidgets import (
     QListWidget, QMainWindow, QMessageBox, QPushButton, QSplitter,
     QTextEdit, QVBoxLayout, QWidget, QLineEdit, QProgressBar, QListWidgetItem,
 )
-from voltscope_data import read_data, export_csv
+from voltscope_data import read_data, export_csv, SUPPORTED_SUFFIXES
+from voltscope_paths import output_directory
 
 COLORS = ['#0077b6', '#e76f51', '#2a9d8f', '#9b5de5', '#b58900', '#e63986']
 FACTORS = {'A': 1, 'mA': 1e3, 'µA': 1e6, 'nA': 1e9}
 
 
+def current_display_base(unit):
+    unit = unit.replace('²','2').replace('μ','µ')
+    if unit == 'uA': unit = 'µA'
+    if unit.endswith('/cm2'):
+        base = unit[:-4]
+        if base == 'uA': base = 'µA'
+        return base, True
+    return unit, False
+
+
 def display_unit(unit, scale):
-    if unit in FACTORS: return scale
-    if unit == 'A/cm2': return f'{scale}/cm²'
+    base, density = current_display_base(unit)
+    if base in FACTORS:
+        return f'{scale}/cm²' if density else scale
     return unit
 
 
 def display_factor(unit, scale):
-    if unit in FACTORS: return FACTORS[scale] / FACTORS[unit]
-    if unit == 'A/cm2': return FACTORS[scale]
+    base, _ = current_display_base(unit)
+    if base in FACTORS:
+        return FACTORS[scale] / FACTORS[base]
     return 1
 
 
@@ -86,15 +100,20 @@ class ImportThread(QThread):
 
 
 class Plot(QWidget):
+    windowSelected = Signal(float, float)
     def __init__(self):
         super().__init__()
         self.setMinimumSize(420, 300)
         self.series, self.paths, self.bounds, self.origin = [], [], None, None
         self.x_label = self.y_label = ''
+        self.bands = []
+        self.range_pick = False
+        self._pick_start = None
+        self._pick_span = None
         self.empty_message = 'Your experiments, in focus.\n\nOpen or drop potentiostat data files to begin.'
 
     def rect_plot(self):
-        return QRectF(90, 30, max(1, self.width()-120), max(1, self.height()-110))
+        return QRectF(110, 30, max(1, self.width()-140), max(1, self.height()-110))
 
     def set_series(self, series, x_label, y_label):
         self.series = series
@@ -129,6 +148,14 @@ class Plot(QWidget):
             return
         r = self.rect_plot()
         a, z, c, d = self.bounds
+        for lo,hi,color in self.bands + ([(*self._pick_span,'#fb923c')] if self._pick_span else []):
+            left=r.left()+(min(lo,hi)-a)/(z-a)*r.width()
+            right=r.left()+(max(lo,hi)-a)/(z-a)*r.width()
+            rect=QRectF(left,r.top(),right-left,r.height()).intersected(r)
+            shade=QColor(color);shade.setAlpha(35)
+            p.fillRect(rect,shade)
+        original_font = p.font()
+        tick_font = p.font(); tick_font.setPixelSize(11); p.setFont(tick_font)
         for j in range(6):
             t = j/5
             x, y = r.left()+t*r.width(), r.bottom()-t*r.height()
@@ -137,7 +164,8 @@ class Plot(QWidget):
             p.drawLine(QPointF(r.left(),y), QPointF(r.right(),y))
             p.setPen(QColor('#334155'))
             p.drawText(QRectF(x-45,r.bottom()+5,90,22), Qt.AlignmentFlag.AlignCenter, f'{a+t*(z-a):.4g}')
-            p.drawText(QRectF(2,y-12,80,24), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f'{c+t*(d-c):.4g}')
+            p.drawText(QRectF(34,y-12,68,24), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, f'{c+t*(d-c):.4g}')
+        p.setFont(original_font)
         p.save()
         p.setClipRect(r)
         p.translate(r.left(), r.bottom())
@@ -179,11 +207,21 @@ class Plot(QWidget):
             self.update()
         event.accept()
 
+    def data_x(self, position):
+        a,z,_,_=self.bounds
+        r=self.rect_plot()
+        return a+(position.x()-r.left())/r.width()*(z-a)
+
     def mousePressEvent(self, event):
+        if self.range_pick and self.bounds is not None and event.button()==Qt.MouseButton.LeftButton and self.rect_plot().contains(event.position()):
+            self._pick_start=self.data_x(event.position());self._pick_span=None
+            event.accept();return
         if event.button() == Qt.MouseButton.LeftButton and self.rect_plot().contains(event.position()):
             self.origin = (event.position(), self.bounds)
 
     def mouseMoveEvent(self, event):
+        if self._pick_start is not None and self.bounds is not None:
+            self._pick_span=(self._pick_start,self.data_x(event.position()));self.update();return
         if self.origin is None or self.origin[1] is None: return
         pos, (a,z,c,d) = self.origin
         r = self.rect_plot()
@@ -193,6 +231,12 @@ class Plot(QWidget):
         self.update()
 
     def mouseReleaseEvent(self, event):
+        if self._pick_start is not None and self.bounds is not None:
+            lo,hi=sorted([self._pick_start,self.data_x(event.position())])
+            self._pick_start=None;self._pick_span=None;self.range_pick=False
+            self.unsetCursor();self.update()
+            if hi>lo:self.windowSelected.emit(lo,hi)
+            return
         self.origin = None
 
     def mouseDoubleClickEvent(self, event):
@@ -203,6 +247,15 @@ class Viewer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.curves, self.importer = [], None
+        self.analysis_results, self.analysis_batches = [], []
+        self.preferences_path = output_directory() / 'viewer_preferences.json'
+        self.last_directory = ''
+        try:
+            prefs = json.loads(self.preferences_path.read_text(encoding='utf-8'))
+            folder = prefs.get('last_open_directory', '')
+            if isinstance(folder,str) and Path(folder).is_dir(): self.last_directory = folder
+        except (OSError, ValueError, AttributeError):
+            pass
         self.setWindowTitle('VoltScope')
         self.resize(1280,820)
         self.setMinimumSize(960,640)
@@ -229,8 +282,15 @@ class Viewer(QMainWindow):
         self.export_button = QPushButton('Export CSV…')
         self.open_button.clicked.connect(self.open)
         self.export_button.clicked.connect(self.export)
-        self.open_button.setToolTip('Open Gamry DTA, Ivium IDF/IDS, or Corrware COR files (Ctrl/Cmd+O). You can also drop files into this window.')
-        self.export_button.setToolTip('Export every row and original column of the selected curves, in original units.')
+        self.open_button.setToolTip('Open supported potentiostat files or CSV/XLSX tables (Ctrl/Cmd+O). You can also drop files into this window.')
+        self.export_button.setToolTip('Export all stored rows/columns of selected curves, including labelled derived columns. Analysis bundles also include parameters and provenance.')
+        self.analyze_button = QPushButton('Analyze…')
+        self.analyze_button.setObjectName('Primary')
+        self.analyze_button.clicked.connect(self.analyze)
+        self.results_button = QPushButton('Results…')
+        self.results_button.clicked.connect(self.show_results)
+        header.addWidget(self.analyze_button)
+        header.addWidget(self.results_button)
         header.addWidget(self.open_button)
         header.addWidget(self.export_button)
         layout.addLayout(header)
@@ -328,6 +388,16 @@ class Viewer(QMainWindow):
         plot_layout.addWidget(foot)
         body.addWidget(plot_area)
         body.setSizes([300,900])
+        analysis_menu = self.menuBar().addMenu('Analysis')
+        action = analysis_menu.addAction('Analyze selected curves…')
+        action.triggered.connect(self.analyze)
+        self.undo_action = analysis_menu.addAction('Undo last analysis')
+        self.undo_action.triggered.connect(self.undo_analysis)
+        action = analysis_menu.addAction('Analysis results…')
+        action.triggered.connect(self.show_results)
+        file_menu = self.menuBar().addMenu('Export')
+        action = file_menu.addAction('Save plot image…')
+        action.triggered.connect(self.save_plot)
         self.progress = QProgressBar()
         self.progress.setRange(0,0)
         self.progress.setMaximumWidth(150)
@@ -338,7 +408,7 @@ class Viewer(QMainWindow):
             shortcut = QShortcut(QKeySequence(key),self)
             shortcut.activated.connect(callback)
         self.draw()
-        self.statusBar().showMessage('Ready • Open or drop Gamry, Ivium, Corrware, Metrohm, or DropView files to begin.')
+        self.statusBar().showMessage('Ready • Open data, select curves, then choose Analyze to preview calculations.')
 
     def filter_curves(self, text):
         for i in range(self.list.count()):
@@ -346,11 +416,11 @@ class Viewer(QMainWindow):
             item.setHidden(text.casefold() not in item.text().casefold())
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls() and any(url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.dta','.idf','.ids','.cor','.nox','.ocw','.ici','.icw','.mtc','.mta','.mtd') for url in event.mimeData().urls()):
+        if event.mimeData().hasUrls() and any(url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in SUPPORTED_SUFFIXES for url in event.mimeData().urls()):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.dta','.idf','.ids','.cor','.nox','.ocw','.ici','.icw','.mtc','.mta','.mtd')]
+        paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in SUPPORTED_SUFFIXES]
         if paths and self.importer is None:
             self.load(paths)
             event.acceptProposedAction()
@@ -359,8 +429,16 @@ class Viewer(QMainWindow):
         return [self.curves[self.list.row(item)] for item in self.list.selectedItems()]
 
     def open(self):
-        paths, _ = QFileDialog.getOpenFileNames(self, 'Open potentiostat data', '', 'Potentiostat data (*.DTA *.dta *.idf *.IDF *.ids *.IDS *.cor *.COR *.nox *.NOX *.ocw *.OCW *.ici *.ICI *.icw *.ICW *.mtc *.MTC *.mta *.MTA *.mtd *.MTD);;All files (*)')
-        if paths: self.load(paths)
+        patterns = ' '.join('*' + ext for suffix in SUPPORTED_SUFFIXES for ext in (suffix, suffix.upper()))
+        paths, _ = QFileDialog.getOpenFileNames(self, 'Open potentiostat data', self.last_directory, f'Potentiostat data ({patterns});;All files (*)')
+        if paths:
+            self.last_directory = str(Path(paths[0]).resolve().parent)
+            try:
+                self.preferences_path.parent.mkdir(parents=True, exist_ok=True)
+                self.preferences_path.write_text(json.dumps({'last_open_directory':self.last_directory}),encoding='utf-8')
+            except OSError:
+                pass  # A file-dialog convenience must never block importing data.
+            self.load(paths)
 
     def load(self, paths):
         if self.importer is not None: return
@@ -399,8 +477,15 @@ class Viewer(QMainWindow):
             c = self.curves[chosen]
             self.list.clearSelection()
             self.list.item(chosen).setSelected(True)
-            self.xbox.setCurrentText('Vf' if c.metadata.get('TAG') in ('CV','DPV') and 'Vf' in c.columns else 'T' if 'T' in c.columns else cols[0])
-            self.ybox.setCurrentText('Vf' if c.metadata.get('TAG') == 'CHRONOP' and 'Vf' in c.columns else 'Im' if 'Im' in c.columns else 'J' if 'J' in c.columns else 'I1' if 'I1' in c.columns else cols[-1])
+            numeric = [col for j, col in enumerate(c.columns) if any(isinstance(row[j], (int, float)) for row in c.rows)]
+            default_x = numeric[0] if numeric else cols[0]
+            default_y = numeric[1] if len(numeric) > 1 else default_x
+            self.xbox.setCurrentText('freq' if c.metadata.get('TAG') == 'EIS' and 'freq' in c.columns else 'Vf' if c.metadata.get('TAG') in ('CV','DPV','SWV','NPV','LSV') and 'Vf' in c.columns else 'T' if 'T' in c.columns else default_x)
+            self.ybox.setCurrentText('|Z|' if c.metadata.get('TAG') == 'EIS' and '|Z|' in c.columns else 'Re(Z)' if c.metadata.get('TAG') == 'EIS' and 'Re(Z)' in c.columns else 'Vf' if c.metadata.get('TAG') == 'CHRONOP' and 'Vf' in c.columns else 'Im' if 'Im' in c.columns else 'J' if 'J' in c.columns else 'I1' if 'I1' in c.columns else default_y)
+        if curves:
+            for box, key in [(self.xbox, 'DEFAULT_X'), (self.ybox, 'DEFAULT_Y')]:
+                if c.metadata.get(key) in c.columns:
+                    box.setCurrentText(c.metadata[key])
         self.list.blockSignals(False)
         for box in [self.xbox,self.ybox]: box.blockSignals(False)
         self.filter_curves(self.search.text())
@@ -415,6 +500,8 @@ class Viewer(QMainWindow):
         self.list.blockSignals(False)
         self.xbox.clear()
         self.ybox.clear()
+        self.analysis_results.clear()
+        self.analysis_batches.clear()
         self.draw()
 
     def draw(self, *_):
@@ -423,14 +510,14 @@ class Viewer(QMainWindow):
         x,y,scale = self.xbox.currentText(),self.ybox.currentText(),self.scale.currentText()
         for c in self.selected():
             details.append(f'{Path(c.source).name}\n{c.name}: {len(c.rows):,} rows')
-            details.extend(f'{key}: {c.metadata[key]}' for key in ['TAG','TITLE','DATE','TIME','PSTAT','AREA','SCANRATE','EXPERIMENTABORTED','STATUS','SOURCE_COLUMNS','UNIT_NOTE','TECHNIQUE','CHANNEL','COLUMN_SOURCE','Reference Type','Reference Potential'] if key in c.metadata)
+            details.extend(f'{key}: {c.metadata[key]}' for key in ['TAG','TITLE','DATE','TIME','PSTAT','AREA','SCANRATE','EXPERIMENTABORTED','STATUS','SOURCE_COLUMNS','UNIT_NOTE','TECHNIQUE','CHANNEL','COLUMN_SOURCE','Reference Type','Reference Potential','FORMAT','SETTINGS_NOTE','ANALYSIS_ID','ANALYSIS_HISTORY'] if key in c.metadata)
             details.append('')
             if x not in c.columns or y not in c.columns:
                 skipped.append(c.name)
                 continue
             xi,yi = c.columns.index(x),c.columns.index(y)
             xu,yu = c.units[xi],c.units[yi]
-            if series and (xu,yu) != series[0][2:4]:
+            if series and (display_unit(xu,scale),display_unit(yu,scale)) != tuple(display_unit(u,scale) for u in series[0][2:4]):
                 skipped.append(c.name)
                 continue
             xf,yf = display_factor(xu, scale), display_factor(yu, scale)
@@ -439,7 +526,7 @@ class Viewer(QMainWindow):
             else: skipped.append(c.name)
         self.details.setPlainText('\n'.join(details))
         xu,yu = series[0][2:4] if series else ('','')
-        self.scale_caption.setText('Current density unit' if 'A/cm2' in (xu,yu) else 'Current unit')
+        self.scale_caption.setText('Current density unit' if any(current_display_base(u)[1] and current_display_base(u)[0] in FACTORS for u in (xu,yu)) else 'Current unit')
         self.scale.setToolTip('Scales current (A) or current density (A/cm²) for display only; CSV retains original units.')
         self.plot.empty_message = ('Select curves in the data library to begin.' if not self.selected() else 'No compatible data for these axes.\nChoose different axes or curves.') if self.curves else 'Your experiments, in focus.\n\nOpen or drop potentiostat data files to begin.'
         self.plot.set_series(series,f'{x} [{display_unit(xu, scale)}]',f'{y} [{display_unit(yu, scale)}]')
@@ -448,10 +535,13 @@ class Viewer(QMainWindow):
         self.library_count.setText(f'{len({c.source for c in self.curves})} files · {len(self.curves)} curves' if self.curves else 'No curves loaded')
         self.plot_count.setText(f'{len(series)} traces · {sum(len(pts) for _,pts,_,_ in series):,} points' if series else 'Ready to explore')
         self.export_button.setEnabled(bool(self.selected()))
+        self.analyze_button.setEnabled(bool(self.selected()) and self.importer is None)
+        self.results_button.setEnabled(bool(self.analysis_results))
+        self.undo_action.setEnabled(bool(self.analysis_batches) and self.importer is None)
         self.select_button.setEnabled(bool(self.curves))
         self.clear_button.setEnabled(bool(self.curves) and self.importer is None)
         for box in [self.xbox,self.ybox,self.scale]: box.setEnabled(bool(self.curves))
-        self.scale.setEnabled(bool(series) and any(u in FACTORS or u == 'A/cm2' for u in (xu,yu)))
+        self.scale.setEnabled(bool(series) and any(current_display_base(u)[0] in FACTORS for u in (xu,yu)))
         self.warning.setText('Some selected curves cannot be plotted with these axes or units: ' + ', '.join(skipped))
         self.warning.setVisible(bool(skipped))
         for i in range(self.list.count()):
@@ -468,8 +558,8 @@ class Viewer(QMainWindow):
             QMessageBox.information(self,'Select curves','Select one or more curves to export.')
             return
         try:
-            output = Path(__file__).resolve().parent/'outputs'
-            output.mkdir(exist_ok=True)
+            output = output_directory()
+            output.mkdir(parents=True, exist_ok=True)
             path, _ = QFileDialog.getSaveFileName(self,'Export selected CSV',str(output/'voltscope_data.csv'),'CSV (*.csv)')
             if not path: return
             if not Path(path).suffix: path += '.csv'
@@ -480,6 +570,70 @@ class Viewer(QMainWindow):
             export_csv(curves,path)
             self.statusBar().showMessage(f'Exported {sum(len(c.rows) for c in curves):,} rows to {path}. Original units and all columns retained.')
         except (OSError,ValueError) as exc: QMessageBox.critical(self,'Export failed',str(exc))
+
+    def analyze(self):
+        if not self.selected():
+            QMessageBox.information(self, 'Select curves', 'Select one or more source curves in the library.')
+            return
+        try:
+            from voltscope_analysis_ui import AnalysisDialog
+        except ModuleNotFoundError as exc:
+            QMessageBox.critical(self, 'Analysis dependency missing', f'{exc}\nRun python -m pip install -r requirements.txt')
+            return
+        AnalysisDialog(self).exec()
+
+    def add_analysis(self, result):
+        if any(r.id == result.id for r in self.analysis_results):
+            return
+        self.analysis_results.append(result)
+        self.analysis_batches.append(result)
+        self.loaded(result.curves, [])
+        self.statusBar().showMessage(f'{result.operation}: added {len(result.curves)} derived curves. Originals retained.')
+
+    def undo_analysis(self):
+        if not self.analysis_batches or self.importer is not None:
+            return
+        result = self.analysis_batches.pop()
+        self.analysis_results = [r for r in self.analysis_results if r.id != result.id]
+        remove = {id(c) for c in result.curves}
+        remaining = [c for c in self.curves if id(c) not in remove]
+        self.list.blockSignals(True)
+        self.list.clear(); self.curves = []
+        self.list.blockSignals(False)
+        self.loaded(remaining, [])
+        self.statusBar().showMessage('Removed last derived batch; original data retained.')
+
+    def show_results(self):
+        if not self.analysis_results:
+            return
+        from voltscope_analysis_ui import HistoryDialog
+        HistoryDialog(self).exec()
+
+    def save_plot(self):
+        if not self.plot.series:
+            QMessageBox.information(self, 'No plot', 'Select curves to plot before exporting an image.')
+            return
+        output = output_directory()
+        try:
+            output.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            QMessageBox.critical(self, 'Image export failed', str(exc))
+            return
+        path, selected_filter = QFileDialog.getSaveFileName(self, 'Save current plot', str(output/'voltscope_plot.png'), 'PNG (*.png);;SVG (*.svg)')
+        if not path:
+            return
+        if not Path(path).suffix:
+            path += '.svg' if 'SVG' in selected_filter else '.png'
+        protected = {Path(c.source).resolve() for c in self.curves}
+        protected.update(Path(p).resolve() for c in self.curves for p in c.metadata.get('COMPANION_FILES', []))
+        try:
+            if Path(path).resolve() in protected:
+                raise ValueError('Source experimental files cannot be overwritten.')
+            from voltscope_analysis_ui import render_plot
+            render_plot(self.plot, path)
+            self.statusBar().showMessage('Saved current plot view to '+path)
+        except (ValueError, OSError) as exc:
+            QMessageBox.critical(self, 'Image export failed', str(exc))
 
     def closeEvent(self,event):
         if self.importer is not None and self.importer.isRunning():

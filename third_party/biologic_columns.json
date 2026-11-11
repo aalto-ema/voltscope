@@ -1,0 +1,487 @@
+{
+  "4": [
+    "Float64",
+    "time",
+    "s"
+  ],
+  "5": [
+    "Float32",
+    "control_V/I",
+    "V/mA"
+  ],
+  "6": [
+    "Float32",
+    "Ewe",
+    "V"
+  ],
+  "7": [
+    "Float64",
+    "dq",
+    "mA·h"
+  ],
+  "8": [
+    "Float32",
+    "I",
+    "mA"
+  ],
+  "9": [
+    "Float32",
+    "Ece",
+    "V"
+  ],
+  "11": [
+    "Float64",
+    "<I>",
+    "mA"
+  ],
+  "13": [
+    "Float64",
+    "(Q-Qo)",
+    "mA·h"
+  ],
+  "16": [
+    "Float32",
+    "Analog IN 1",
+    "V"
+  ],
+  "17": [
+    "Float32",
+    "Analog IN 2",
+    "V"
+  ],
+  "19": [
+    "Float32",
+    "control_V",
+    "V"
+  ],
+  "20": [
+    "Float32",
+    "control_I",
+    "mA"
+  ],
+  "23": [
+    "Float64",
+    "dQ",
+    "mA·h"
+  ],
+  "24": [
+    "Float64",
+    "cycle number",
+    ""
+  ],
+  "32": [
+    "Float32",
+    "freq",
+    "Hz"
+  ],
+  "33": [
+    "Float32",
+    "|Ewe|",
+    "V"
+  ],
+  "34": [
+    "Float32",
+    "|I|",
+    "A"
+  ],
+  "35": [
+    "Float32",
+    "Phase(Z)",
+    "deg"
+  ],
+  "36": [
+    "Float32",
+    "|Z|",
+    "Ohm"
+  ],
+  "37": [
+    "Float32",
+    "Re(Z)",
+    "Ohm"
+  ],
+  "38": [
+    "Float32",
+    "-Im(Z)",
+    "Ohm"
+  ],
+  "39": [
+    "Uint16",
+    "I Range",
+    ""
+  ],
+  "70": [
+    "Float32",
+    "P",
+    "W"
+  ],
+  "74": [
+    "Float64",
+    "Energy",
+    "W·h"
+  ],
+  "75": [
+    "Float32",
+    "Analog OUT",
+    "V"
+  ],
+  "76": [
+    "Float32",
+    "<I>",
+    "mA"
+  ],
+  "77": [
+    "Float32",
+    "<Ewe>",
+    "V"
+  ],
+  "78": [
+    "Float32",
+    "Cs-2",
+    "µF⁻²"
+  ],
+  "96": [
+    "Float32",
+    "|Ece|",
+    "V"
+  ],
+  "98": [
+    "Float32",
+    "Phase(Zce)",
+    "deg"
+  ],
+  "99": [
+    "Float32",
+    "|Zce|",
+    "Ohm"
+  ],
+  "100": [
+    "Float32",
+    "Re(Zce)",
+    "Ohm"
+  ],
+  "101": [
+    "Float32",
+    "-Im(Zce)",
+    "Ohm"
+  ],
+  "123": [
+    "Float64",
+    "Energy charge",
+    "W·h"
+  ],
+  "124": [
+    "Float64",
+    "Energy discharge",
+    "W·h"
+  ],
+  "125": [
+    "Float64",
+    "Capacitance charge",
+    "µF"
+  ],
+  "126": [
+    "Float64",
+    "Capacitance discharge",
+    "µF"
+  ],
+  "131": [
+    "Uint16",
+    "Ns",
+    ""
+  ],
+  "163": [
+    "Float32",
+    "|Estack|",
+    "V"
+  ],
+  "168": [
+    "Float32",
+    "Rcmp",
+    "Ohm"
+  ],
+  "169": [
+    "Float32",
+    "Cs",
+    "µF"
+  ],
+  "172": [
+    "Float32",
+    "Cp",
+    "µF"
+  ],
+  "173": [
+    "Float32",
+    "Cp-2",
+    "µF⁻²"
+  ],
+  "174": [
+    "Float32",
+    "<Ewe>",
+    "V"
+  ],
+  "241": [
+    "Float32",
+    "|E1|",
+    "V"
+  ],
+  "242": [
+    "Float32",
+    "|E2|",
+    "V"
+  ],
+  "271": [
+    "Float32",
+    "Phase(Z1)",
+    "deg"
+  ],
+  "272": [
+    "Float32",
+    "Phase(Z2)",
+    "deg"
+  ],
+  "301": [
+    "Float32",
+    "|Z1|",
+    "Ohm"
+  ],
+  "302": [
+    "Float32",
+    "|Z2|",
+    "Ohm"
+  ],
+  "331": [
+    "Float32",
+    "Re(Z1)",
+    "Ohm"
+  ],
+  "332": [
+    "Float32",
+    "Re(Z2)",
+    "Ohm"
+  ],
+  "361": [
+    "Float32",
+    "-Im(Z1)",
+    "Ohm"
+  ],
+  "362": [
+    "Float32",
+    "-Im(Z2)",
+    "Ohm"
+  ],
+  "391": [
+    "Float32",
+    "<E1>",
+    "V"
+  ],
+  "392": [
+    "Float32",
+    "<E2>",
+    "V"
+  ],
+  "422": [
+    "Float32",
+    "Phase(Zstack)",
+    "deg"
+  ],
+  "423": [
+    "Float32",
+    "|Zstack|",
+    "Ohm"
+  ],
+  "424": [
+    "Float32",
+    "Re(Zstack)",
+    "Ohm"
+  ],
+  "425": [
+    "Float32",
+    "-Im(Zstack)",
+    "Ohm"
+  ],
+  "426": [
+    "Float32",
+    "<Estack>",
+    "V"
+  ],
+  "430": [
+    "Float32",
+    "Phase(Zwe-ce)",
+    "deg"
+  ],
+  "431": [
+    "Float32",
+    "|Zwe-ce|",
+    "Ohm"
+  ],
+  "432": [
+    "Float32",
+    "Re(Zwe-ce)",
+    "Ohm"
+  ],
+  "433": [
+    "Float32",
+    "-Im(Zwe-ce)",
+    "Ohm"
+  ],
+  "434": [
+    "Float32",
+    "(Q-Qo)",
+    "C"
+  ],
+  "435": [
+    "Float32",
+    "dQ",
+    "C"
+  ],
+  "441": [
+    "Float32",
+    "<Ece>",
+    "V"
+  ],
+  "462": [
+    "Float32",
+    "Temperature",
+    "°C"
+  ],
+  "467": [
+    "Float64",
+    "Q charge/discharge",
+    "mA·h"
+  ],
+  "468": [
+    "Uint32",
+    "half cycle",
+    ""
+  ],
+  "469": [
+    "Uint32",
+    "z cycle",
+    ""
+  ],
+  "471": [
+    "Float32",
+    "<Ece>",
+    "V"
+  ],
+  "473": [
+    "Float32",
+    "THD Ewe",
+    "%"
+  ],
+  "474": [
+    "Float32",
+    "THD I",
+    "%"
+  ],
+  "476": [
+    "Float32",
+    "NSD Ewe",
+    "%"
+  ],
+  "477": [
+    "Float32",
+    "NSD I",
+    "%"
+  ],
+  "479": [
+    "Float32",
+    "NSR Ewe",
+    "%"
+  ],
+  "480": [
+    "Float32",
+    "NSR I",
+    "%"
+  ],
+  "486": [
+    "Float32",
+    "|Ewe h2|",
+    "V"
+  ],
+  "487": [
+    "Float32",
+    "|Ewe h3|",
+    "V"
+  ],
+  "488": [
+    "Float32",
+    "|Ewe h4|",
+    "V"
+  ],
+  "489": [
+    "Float32",
+    "|Ewe h5|",
+    "V"
+  ],
+  "490": [
+    "Float32",
+    "|Ewe h6|",
+    "V"
+  ],
+  "491": [
+    "Float32",
+    "|Ewe h7|",
+    "V"
+  ],
+  "492": [
+    "Float32",
+    "|I h2|",
+    "A"
+  ],
+  "493": [
+    "Float32",
+    "|I h3|",
+    "A"
+  ],
+  "494": [
+    "Float32",
+    "|I h4|",
+    "A"
+  ],
+  "495": [
+    "Float32",
+    "|I h5|",
+    "A"
+  ],
+  "496": [
+    "Float32",
+    "|I h6|",
+    "A"
+  ],
+  "497": [
+    "Float32",
+    "|I h7|",
+    "A"
+  ],
+  "498": [
+    "Float32",
+    "|Ece h2|",
+    "V"
+  ],
+  "499": [
+    "Float32",
+    "|Ece h7|",
+    "V"
+  ],
+  "500": [
+    "Float32",
+    "|Ece h7|",
+    "V"
+  ],
+  "501": [
+    "Float32",
+    "|Ece h7|",
+    "V"
+  ],
+  "502": [
+    "Float32",
+    "|Ece h7|",
+    "V"
+  ],
+  "503": [
+    "Float32",
+    "|Ece h7|",
+    "V"
+  ]
+}

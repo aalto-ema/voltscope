@@ -10,9 +10,16 @@
 
 ## Current baseline
 
-Gamry/Ivium/Corrware/Metrohm/DropView import, curve overlays, axis selection, current display scaling,
+Gamry/Ivium/Corrware/Metrohm/DropView/BioLogic/PalmSens/Zahner import,
+CSV/XLSX header-table import, curve overlays, axis selection, current display scaling,
 zoom/pan, metadata, and raw CSV export exist in the PySide6 app. The UI now includes library search, drag/drop, color-matched legends, and import feedback.
-No analysis algorithms are implemented yet.
+EIS signals can be viewed on linear axes with original sign conventions.
+The analysis workbench implements area/reference/iR transformations, smoothing,
+derivatives, local peaks and baseline-relative charge, time integration,
+Tafel regression, scan/cycle splitting, pulse joining/charge summaries,
+explicit column-unit assignment and normalized coordinate rotation.
+Result bundles and PNG/SVG plot export are available. EIS fitting is not implemented.
+GitHub Actions builds a per-user Windows x64 installer as a workflow artifact.
 
 ## Next development milestones
 
@@ -20,19 +27,22 @@ No analysis algorithms are implemented yet.
    and declare runtime dependencies.
 2. Synthetic parser/export and Qt interaction checks exist. Next validate the
    native desktop workflow on Windows; macOS migration checks are complete.
-3. Add CV and CA analysis with reproducible parameter/result export. Decide the
-   specific analyses before implementing them.
+3. Completed: initial CV/CA/viewPAR analysis workflows with preview, derived
+   curves, undo, and reproducible parameter/result export. Validate on the group's
+   real workflows and on native Windows before broadening the algorithms.
 
-## Analysis candidates to confirm
+## Further analysis candidates
 
-These are proposals, not agreed requirements or existing features:
+The initial functions above are implemented; these are possible extensions:
 
-- CV: cycle/branch selection, peak positions and currents, baseline subtraction,
-  charge integration, and scan-rate comparisons.
-- CA: time-window selection, steady-state summaries, charge integration,
-  light/dark interval comparisons, and transient fitting.
-- Optional normalization by electrode area with explicit inputs and units.
+- Completed: dedicated CV baseline/peak workflow without scan rate, per-sweep
+  robust linear/quadratic backgrounds, visual window selection, local apex fits,
+  quality flags, missing-pair handling and peak CSV/provenance exports.
+- CV next: validate background assumptions with group measurements; automated
+  scan-rate comparisons, overlapping-peak models and uncertainty estimates remain planned.
+- CA: time-weighted/steady-state models, light/dark interval comparisons, and transient fitting.
+- Nonlinear fitting with explicit uncertainty and diagnostic reporting.
 
 ECSA calculations require a chosen method and its scientific assumptions;
-no universal conversion is assumed. EIS fitting, packaged distribution, and a
-public release are outside the current priority and have no committed timeline.
+no universal conversion is assumed. EIS fitting, macOS packaging, code signing,
+and a public release have no committed timeline.

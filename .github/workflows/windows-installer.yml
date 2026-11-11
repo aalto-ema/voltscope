@@ -1,0 +1,58 @@
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'voltscope*.py'
+      - 'third_party/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'requirements.txt'
+      - 'LICENSE'
+      - 'installer/**'
+      - '.github/workflows/windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            installer/requirements.txt
+      - name: Install app and build dependencies
+        run: python -m pip install -r installer/requirements.txt
+      - name: Run Windows tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -v
+      - name: Build installer
+        env:
+          VOLTSCOPE_BUILD_VERSION: 0.1.${{ github.run_number }}
+        run: ./installer/build-windows.ps1 -Version $env:VOLTSCOPE_BUILD_VERSION
+      - name: Test install, launch, analysis and uninstall
+        run: ./installer/test-installation.ps1
+      - name: Upload installer and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoltScope-Windows-x64
+          path: |
+            outputs/windows/VoltScope-Setup-x64.exe
+            outputs/windows/VoltScope-Setup-x64.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

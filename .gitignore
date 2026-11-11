@@ -39,3 +39,10 @@ Thumbs.db
 *.[mM][tT][cC]
 *.[mM][tT][aA]
 *.[mM][tT][dD]
+
+# Additional real instrument files and spreadsheet exports
+*.[mM][pP][tT]
+*.[mM][pP][rR]
+*.[pP][sS][sS][eE][sS][sS][iI][oO][nN]
+*.[iI][sS][mM]
+*.xlsx

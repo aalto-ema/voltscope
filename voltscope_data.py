@@ -203,8 +203,24 @@ def read_corrware(path):
     return [Curve(str(path), experiment, columns, units, rows, metadata)]
 
 
+SUPPORTED_SUFFIXES = ('.dta', '.idf', '.ids', '.cor', '.nox', '.ocw', '.ici', '.icw',
+                      '.mtc', '.mta', '.mtd', '.mpt', '.mpr', '.txt', '.pssession', '.ism', '.csv', '.xlsx')
+
+
 def read_data(path):
     suffix = Path(path).suffix.lower()
+    if suffix in ('.mpt', '.mpr', '.txt'):
+        from voltscope_biologic import read_biologic_text, read_mpr
+        return read_mpr(path) if suffix == '.mpr' else read_biologic_text(path)
+    if suffix == '.pssession':
+        from voltscope_palmsens import read_pssession
+        return read_pssession(path)
+    if suffix == '.ism':
+        from voltscope_zahner import read_ism
+        return read_ism(path)
+    if suffix in ('.csv', '.xlsx'):
+        from voltscope_tabular import read_csv_table, read_xlsx
+        return read_xlsx(path) if suffix == '.xlsx' else read_csv_table(path)
     if suffix in ('.mtc','.mta','.mtd'):
         from voltscope_dropview import read_dropview
         return read_dropview(path)
@@ -215,7 +231,9 @@ def read_data(path):
         return read_corrware(path)
     if suffix in ('.idf', '.ids'):
         return read_ivium(path)
-    return read_dta(path)
+    if suffix == '.dta':
+        return read_dta(path)
+    raise ValueError(f'Unsupported file extension: {suffix or "(none)"}')
 
 
 def export_csv(curves, path):
